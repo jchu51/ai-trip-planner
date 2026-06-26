@@ -1,4 +1,9 @@
-import { LookupWeathearAgent, SearchPlacesAgent } from "../agents/index";
+import {
+  HotelAgent,
+  LookupWeathearAgent,
+  PlannerAgent,
+  SearchPlacesAgent,
+} from "../agents/index";
 import { googleMapsMcpClient } from "../mcp/clients/google-map-client";
 import { llmService } from "./llm-service";
 
@@ -15,13 +20,39 @@ export const app = async () => {
     googleMapsMcpClient,
   );
 
-  const userPrompt = "I want to go to NY, in next month";
+  const hotelAgent = new HotelAgent("hotelAgent", model, googleMapsMcpClient);
+  const plannerAgent = new PlannerAgent("plannerAgent", model);
 
-  const wResponse = await weathearAgent.run(userPrompt);
-  const pResponse = await searchPlacesAgent.run(userPrompt);
+  const userPrompt =
+    "Plan a 3-day trip to Taipei for two people. We like temples, local food, and a medium budget.";
 
-  console.log("wResponse: \n", wResponse);
-  console.log("pResponse: \n", pResponse);
+  try {
+    const [wResponse, pResponse, hResponse] = await Promise.all([
+      weathearAgent.run(userPrompt),
+      searchPlacesAgent.run(userPrompt),
+      hotelAgent.run(userPrompt),
+    ]);
+
+    const plannerInput = `
+Original user request:
+${userPrompt}
+
+Weather agent output:
+${wResponse}
+
+Search places agent output:
+${pResponse}
+
+Hotel agent output:
+${hResponse}
+`.trim();
+
+    const finalPlan = await plannerAgent.run(plannerInput);
+
+    console.log("finalPlan: \n", finalPlan);
+  } finally {
+    await googleMapsMcpClient.close();
+  }
 };
 
 app().catch((error) => {

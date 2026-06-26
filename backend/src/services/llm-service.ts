@@ -16,7 +16,7 @@ export class LLMService {
     return initChatModel(modelId, {
       temperature: options.temperature ?? 0.7,
       timeout: options.timeout ?? config.llm.timeout,
-      maxTokens: options.maxTokens ?? 1000,
+      maxTokens: options.maxTokens ?? 10000,
       maxRetries: options.maxRetries ?? 6,
       apiKey: config.llm.apiKey,
     });

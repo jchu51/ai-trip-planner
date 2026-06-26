@@ -1,12 +1,12 @@
-# Travel AI
+# AI Trip Planner
 
-Travel AI is an intelligent travel assistant inspired by Chapter 13 of
+AI Trip Planner is an intelligent travel assistant inspired by Chapter 13 of
 [HelloAgents](https://datawhalechina.github.io/hello-agents/#/./chapter13/%E7%AC%AC%E5%8D%81%E4%B8%89%E7%AB%A0%20%E6%99%BA%E8%83%BD%E6%97%85%E8%A1%8C%E5%8A%A9%E6%89%8B).
 
 ## Project Goal
 
-Travel AI helps users create, edit, visualize, budget, and export complete trip
-plans.
+AI Trip Planner helps users create, edit, visualize, budget, and export complete
+trip plans.
 
 A user should be able to provide:
 
@@ -115,31 +115,86 @@ This makes the itinerary easier to save, print, or share.
 ## Backend
 
 The backend is a TypeScript/LangChain learning implementation for building
-small, focused agents around Google Maps MCP tools.
+small, focused agents around Google Maps MCP tools. The current backend uses a
+specialist-agent pipeline followed by one planner agent.
 
 Current backend pieces:
 
-- `LookupWeathearAgent`: answers weather-aware travel questions.
-- `SearchPlacesAgent`: searches for real places that match travel intent.
+- `LookupWeathearAgent`: gathers weather facts and weather risks only.
+- `SearchPlacesAgent`: gathers attractions, food areas, activities, and places
+  worth visiting.
+- `HotelAgent`: gathers hotel options and hotel-area tradeoffs based on the
+  user's accommodation preference.
+- `PlannerAgent`: acts as the final planning brain. It receives the specialist
+  outputs and writes the final day-by-day itinerary.
 - `GoogleMapsTools`: loads Google Maps MCP tools and selects the tools each
   agent is allowed to use.
 - `AgentError`: shared agent-level error type that keeps the original cause for
   debugging.
 
-The current design is intentionally simple:
+The current design separates research from planning:
 
 ```text
 User prompt
-  -> focused agent
-  -> selected Google Maps MCP tools
-  -> LangChain createAgent
-  -> final answer
+  -> Weather Agent + lookup_weather
+  -> Places Agent + search_places
+  -> Hotel Agent + search_places
+  -> Planner Agent
+  -> final day-by-day itinerary
 ```
+
+The three specialist agents do not plan the trip. Their prompts are intentionally
+scoped so they return factual, useful planning inputs. The planner agent is the
+only agent responsible for combining those inputs into the final itinerary.
 
 The MCP client connects to Google Maps over HTTP. Agents do not receive every
 tool automatically; each agent receives only the tool group it needs. For
 example, the weather agent receives `lookup_weather`, while the places agent
 receives `search_places`.
+
+### Agent Flow
+
+The sample backend app currently runs the independent specialist agents in
+parallel:
+
+```ts
+const [weather, places, hotels] = await Promise.all([
+  weatherAgent.run(userPrompt),
+  searchPlacesAgent.run(userPrompt),
+  hotelAgent.run(userPrompt),
+]);
+```
+
+Then the outputs are passed to the planner:
+
+```text
+Original user request:
+...
+
+Weather agent output:
+...
+
+Search places agent output:
+...
+
+Hotel agent output:
+...
+```
+
+This keeps the architecture easy to understand while reducing latency compared
+with calling the three specialists one after another.
+
+### Latency Notes
+
+Four agents means four LLM calls, plus MCP tool calls. The main latency controls
+are:
+
+- run independent specialist agents in parallel
+- keep specialist outputs concise
+- use a faster model for specialist research agents
+- reserve the stronger model for the planner agent
+- cache MCP tool discovery instead of calling `getTools()` repeatedly
+- close the shared MCP client after the full pipeline finishes
 
 ### Backend Setup
 
@@ -152,6 +207,8 @@ LLM_TIMEOUT=60
 GOOGLE_API_KEY=
 GOOGLE_MCP_URL=https://mapstools.googleapis.com/mcp
 ```
+
+Optional LangSmith tracing variables are also included in the example env file.
 
 Install and run:
 
