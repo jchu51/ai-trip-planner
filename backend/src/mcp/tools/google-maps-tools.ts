@@ -5,6 +5,9 @@ type McpTools = Awaited<ReturnType<MultiServerMCPClient["getTools"]>>;
 export enum GoogleToolsName {
   SEARCH_PLACES = "search_places",
   LOOKUP_WEATHER = "lookup_weather",
+  COMPUTE_ROUTES = "compute_routes",
+  RESOLVE_MAPS_URLS = "resolve_maps_urls",
+  RESOLVE_NAMES = "resolve_names",
 }
 
 export class GoogleMapsTools {
@@ -18,15 +21,6 @@ export class GoogleMapsTools {
   async getAllTools(): Promise<McpTools> {
     this.toolsCache ??= await this.client.getTools();
 
-    // console.dir(
-    //   this.toolsCache.map((tool) => ({
-    //     name: tool.name,
-    //     description: tool.description,
-    //     schema: tool.schema,
-    //   })),
-    //   { depth: null },
-    // );
-
     return this.toolsCache;
   }
 
@@ -34,38 +28,46 @@ export class GoogleMapsTools {
     this.toolsCache = undefined;
   }
 
-  async getLookupWeatherTools(): Promise<McpTools> {
-    return this.getToolsByName(GoogleToolsName.LOOKUP_WEATHER);
-  }
-
-  async getSearchPlacesTools(): Promise<McpTools> {
-    return this.getToolsByName(GoogleToolsName.SEARCH_PLACES);
-  }
-
-  private async getToolsByName(toolName: GoogleToolsName): Promise<McpTools> {
+  async getToolsByNames(
+    toolNames: GoogleToolsName | GoogleToolsName[],
+  ): Promise<McpTools> {
+    const requestedToolNames = Array.isArray(toolNames) ? toolNames : [toolNames];
     let tools = await this.getAllTools();
-    let matchingTools = this.filterToolsByName(tools, toolName);
+    let matchingTools = this.filterToolsByNames(tools, requestedToolNames);
+    let missingToolNames = this.getMissingToolNames(tools, requestedToolNames);
 
-    if (matchingTools.length === 0) {
+    if (missingToolNames.length > 0) {
       this.clearCache();
       tools = await this.getAllTools();
-      matchingTools = this.filterToolsByName(tools, toolName);
+      matchingTools = this.filterToolsByNames(tools, requestedToolNames);
+      missingToolNames = this.getMissingToolNames(tools, requestedToolNames);
     }
 
-    if (matchingTools.length === 0) {
+    if (missingToolNames.length > 0) {
       throw new Error(
-        `${toolName} tool not found. Available tools: ${this.formatToolNames(tools)}`,
+        `${missingToolNames.join(", ")} tool not found. Available tools: ${this.formatToolNames(tools)}`,
       );
     }
 
     return matchingTools;
   }
 
-  private filterToolsByName(
+  private filterToolsByNames(
     tools: McpTools,
-    toolName: GoogleToolsName,
+    toolNames: GoogleToolsName[],
   ): McpTools {
-    return tools.filter((tool) => tool.name.includes(toolName));
+    return tools.filter((tool) =>
+      toolNames.some((toolName) => tool.name.includes(toolName)),
+    );
+  }
+
+  private getMissingToolNames(
+    tools: McpTools,
+    toolNames: GoogleToolsName[],
+  ): GoogleToolsName[] {
+    return toolNames.filter(
+      (toolName) => !tools.some((tool) => tool.name.includes(toolName)),
+    );
   }
 
   private formatToolNames(tools: McpTools): string {

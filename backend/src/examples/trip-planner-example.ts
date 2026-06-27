@@ -1,6 +1,6 @@
 import {
   HotelAgent,
-  LookupWeathearAgent,
+  LookupWeatherAgent,
   PlannerAgent,
   SearchPlacesAgent,
 } from "../agents";
@@ -9,7 +9,7 @@ import { llmService } from "../services/llm-service";
 
 const runExample = async () => {
   const model = await llmService.init();
-  const weatherAgent = new LookupWeathearAgent(
+  const weatherAgent = new LookupWeatherAgent(
     "lookupWeatherAgent",
     model,
     googleMapsMcpClient,
@@ -20,7 +20,11 @@ const runExample = async () => {
     googleMapsMcpClient,
   );
   const hotelAgent = new HotelAgent("hotelAgent", model, googleMapsMcpClient);
-  const plannerAgent = new PlannerAgent("plannerAgent", model);
+  const plannerAgent = new PlannerAgent(
+    "plannerAgent",
+    model,
+    googleMapsMcpClient,
+  );
 
   const userPrompt =
     "Plan a 3-day trip to Taipei for two people. We like temples, local food, and a medium budget.";

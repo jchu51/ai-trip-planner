@@ -25,7 +25,7 @@ const attractionSchema = z.object({
   location: locationSchema.default({ longitude: 0, latitude: 0 }),
   visit_duration: z.coerce.number().int().default(120),
   description: z.string().default(""),
-  category: z.string().optional().default("景点"),
+  category: z.string().optional().default("Attraction"),
   rating: z.coerce.number().optional(),
   image_url: z.string().optional(),
   ticket_price: z.coerce.number().int().optional().default(0),
@@ -72,6 +72,41 @@ const weatherInfoSchema = z.object({
   wind_power: z.string().default(""),
 });
 
+const routeConnectionSchema = z.object({
+  day_index: z.coerce
+    .number()
+    .int()
+    .describe("Zero-based day index matching the day_index in days."),
+  from: z
+    .string()
+    .describe("Starting hotel, attraction, restaurant, station, or area name."),
+  to: z
+    .string()
+    .describe("Next hotel, attraction, restaurant, station, or area name."),
+  transportation: z
+    .string()
+    .describe("Travel mode, such as Walk, Public transit, Drive, or Bike.")
+    .default(""),
+  distance_text: z
+    .string()
+    .describe("Human-readable route distance from the map tool, if available.")
+    .default(""),
+  duration_text: z
+    .string()
+    .describe("Human-readable route duration from the map tool, if available.")
+    .default(""),
+  map_url: z
+    .string()
+    .describe("Google Maps directions URL for this connection, if available.")
+    .optional()
+    .default(""),
+  notes: z
+    .string()
+    .describe("Short practical route note for the traveler or planner.")
+    .optional()
+    .default(""),
+});
+
 const budgetSchema = z.object({
   total_attractions: z.coerce.number().int().default(0),
   total_hotels: z.coerce.number().int().default(0),
@@ -86,6 +121,12 @@ export const tripPlanSchema = z.object({
   end_date: z.string(),
   days: z.array(dayPlanSchema),
   weather_info: z.array(weatherInfoSchema).default([]),
+  routes: z
+    .array(routeConnectionSchema)
+    .describe(
+      "Frontend map route connections. Use [] only when there are fewer than two known stops in the whole itinerary.",
+    )
+    .default([]),
   overall_suggestions: z.string(),
   budget: budgetSchema.optional(),
 });

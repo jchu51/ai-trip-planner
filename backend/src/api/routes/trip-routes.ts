@@ -19,7 +19,7 @@ export const createTripRouter = ({
 
       res.status(200).json({
         success: true,
-        message: "旅行计划生成成功",
+        message: "Trip plan generated successfully",
         data: result,
       });
     } catch (error) {

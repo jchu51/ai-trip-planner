@@ -112,6 +112,54 @@ Planned export formats:
 
 This makes the itinerary easier to save, print, or share.
 
+## Frontend
+
+The React frontend lives in `frontend/`. It ports the Chapter 13 Vue frontend
+flow into a Vite + React app:
+
+- trip request form with destination, dates, travel style, hotel preference,
+  preference tags, and free-text requirements
+- loading progress while the backend generates a plan
+- session-stored result page that reuses the backend's Python-compatible
+  `TripPlan` response shape
+- editable daily attractions with reorder, delete, and field edits
+- budget, weather, hotel, meal, and day-by-day itinerary sections
+- Google Maps route visualization built with `@react-google-maps/api`
+- export to PNG or PDF
+
+Run the frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+By default the frontend calls `http://127.0.0.1:8000`. Override this with
+`VITE_API_BASE_URL` when the backend is running somewhere else.
+
+To render the Google route map, create `frontend/.env` from
+`frontend/.env.example` and set `VITE_GOOGLE_MAPS_API_KEY`. Use a browser API
+key restricted by HTTP referrer, for example:
+
+```text
+http://localhost:3000/*
+http://127.0.0.1:3000/*
+https://your-production-domain.com/*
+```
+
+For this frontend browser key, enable and allow only the APIs needed by the map
+renderer:
+
+- Maps JavaScript API (`maps-backend.googleapis.com`)
+- Directions API (Legacy) (`directions-backend.googleapis.com`)
+
+The React map uses `@react-google-maps/api` and `DirectionsService`, so
+`ZERO_RESULTS` can still happen for a specific route leg when Google cannot
+match the stop text or travel mode. Failed legs are marked in the route editor
+with a red `x` badge. The old `VITE_GOOGLE_MAPS_EMBED_API_KEY` variable was for
+iframe embeds and is not used by the React Google Maps route renderer.
+
 ## Backend
 
 The backend is a TypeScript/LangChain learning implementation for building
@@ -120,7 +168,7 @@ specialist-agent pipeline followed by one planner agent.
 
 Current backend pieces:
 
-- `LookupWeathearAgent`: gathers weather facts and weather risks only.
+- `LookupWeatherAgent`: gathers weather facts and weather risks only.
 - `SearchPlacesAgent`: gathers attractions, food areas, activities, and places
   worth visiting.
 - `HotelAgent`: gathers hotel options and hotel-area tradeoffs based on the
@@ -226,7 +274,7 @@ Create `backend/.env` from `backend/.env.example` and provide:
 NODE_ENV=development
 HOST=127.0.0.1
 PORT=8000
-CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 LLM_MODEL_ID=
 LLM_API_KEY=
 LLM_TIMEOUT=60
@@ -234,9 +282,36 @@ GOOGLE_API_KEY=
 GOOGLE_MCP_URL=https://mapstools.googleapis.com/mcp
 ```
 
+Use a separate Google server API key for `GOOGLE_API_KEY`. This key is sent from
+the backend to the Google Maps MCP endpoint and should not be exposed to the
+browser. In Google Cloud, give it API restrictions for the Maps MCP tools used by
+the agents:
+
+```yaml
+apiTargets:
+  - service: addressvalidation.googleapis.com
+  - service: geocoding-backend.googleapis.com
+  - service: geolocation.googleapis.com
+  - service: mapmanagement.googleapis.com
+  - service: elevation-backend.googleapis.com
+  - service: maps-embed-backend.googleapis.com
+  - service: mapstools.googleapis.com
+  - service: maps-backend.googleapis.com
+  - service: places.googleapis.com
+  - service: placewidgets.googleapis.com
+  - service: routes.googleapis.com
+  - service: weather.googleapis.com
+  - service: directions-backend.googleapis.com
+```
+
+For application restrictions, prefer restricting the backend key to your server
+egress IPs in production. During local development, you may need to temporarily
+leave the application restriction open if your local IP changes often, but keep
+the API restrictions above enabled.
+
 Optional LangSmith tracing variables are also included in the example env file.
 By default, local development allows the Vite frontend running on
-`localhost:5173` to call the backend API. For deployed environments, set
+`localhost:3000` to call the backend API. For deployed environments, set
 `NODE_ENV=production`, change `CORS_ORIGINS` to the real frontend origin, and set
 `HOST=0.0.0.0` if the server must accept external traffic.
 
@@ -260,13 +335,13 @@ The API server listens on `http://127.0.0.1:8000` by default.
 Health check:
 
 ```bash
-curl http://localhost:8000/health
+curl http://127.0.0.1:8000/health
 ```
 
 Generate a trip plan:
 
 ```bash
-curl 'http://localhost:8000/api/trip/plan' \
+curl 'http://127.0.0.1:8000/api/trip/plan' \
   --data-raw '{"city":"Taipei","start_date":"2026-06-01","end_date":"2026-06-03","travel_days":3,"transportation":"public transit","accommodation":"economy hotel","preferences":["temples","local food"],"free_text_input":""}'
 ```
 
@@ -280,6 +355,49 @@ Python frontend contract:
   message: string;
   data?: TripPlan;
 }
+```
+
+Request body:
+
+```ts
+{
+  city: string;
+  start_date: string;
+  end_date: string;
+  travel_days: number;
+  transportation: string;
+  accommodation: string;
+  preferences: string[];
+  free_text_input?: string;
+}
+```
+
+`PlannerAgent` uses LangChain `responseFormat` with the shared `TripPlan` Zod
+schema, so the planner should return structured data instead of free-form JSON
+text. The returned `data` object is shaped for the existing frontend:
+
+```ts
+{
+  city: string;
+  start_date: string;
+  end_date: string;
+  days: DayPlan[];
+  weather_info: WeatherInfo[];
+  routes: RouteConnection[];
+  overall_suggestions: string;
+  budget?: Budget;
+}
+```
+
+`routes` contains planner-selected Google route connections for the map section,
+including origin, destination, transport mode, distance, duration, and map URL
+when available.
+
+Run the local CLI example without starting the HTTP server:
+
+```bash
+cd backend
+npm run example
 ```
 
 Type-check:

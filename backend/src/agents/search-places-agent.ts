@@ -3,7 +3,10 @@ import { ConfigurableModel } from "langchain/chat_models/universal";
 import { MultiServerMCPClient } from "@langchain/mcp-adapters";
 import { Agent } from "../core/agent";
 import { AgentError } from "../core/agent-error";
-import { GoogleMapsTools } from "../mcp/tools/google-maps-tools";
+import {
+  GoogleMapsTools,
+  GoogleToolsName,
+} from "../mcp/tools/google-maps-tools";
 import { SEARCH_PLACES_AGENT_SYSTEM_PROMPT } from "../prompts/places-system-prompt";
 
 export class SearchPlacesAgent extends Agent {
@@ -24,7 +27,7 @@ export class SearchPlacesAgent extends Agent {
     try {
       const searchPlacesTool = await new GoogleMapsTools(
         this.mcpClient,
-      ).getSearchPlacesTools();
+      ).getToolsByNames(GoogleToolsName.SEARCH_PLACES);
 
       const agent = createAgent({
         model: this.model,

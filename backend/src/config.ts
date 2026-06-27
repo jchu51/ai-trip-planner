@@ -20,7 +20,7 @@ const envSchema = z.object({
   GOOGLE_MCP_URL: z.string().min(1, "GOOGLE_MCP_URL is required"),
   CORS_ORIGINS: z
     .string()
-    .default("http://localhost:5173,http://127.0.0.1:5173"),
+    .default("http://localhost:3000,http://127.0.0.1:3000"),
 });
 
 const env = envSchema.parse(process.env);

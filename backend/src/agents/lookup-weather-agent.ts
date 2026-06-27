@@ -3,10 +3,13 @@ import { ConfigurableModel } from "langchain/chat_models/universal";
 import { MultiServerMCPClient } from "@langchain/mcp-adapters";
 import { Agent } from "../core/agent";
 import { AgentError } from "../core/agent-error";
-import { GoogleMapsTools } from "../mcp/tools/google-maps-tools";
+import {
+  GoogleMapsTools,
+  GoogleToolsName,
+} from "../mcp/tools/google-maps-tools";
 import { WEATHER_AGENT_SYSTEM_PROMPT } from "../prompts/weather-system-prompt";
 
-export class LookupWeathearAgent extends Agent {
+export class LookupWeatherAgent extends Agent {
   readonly model: ConfigurableModel;
   readonly mcpClient: MultiServerMCPClient;
 
@@ -24,7 +27,7 @@ export class LookupWeathearAgent extends Agent {
     try {
       const lookupWeatherTool = await new GoogleMapsTools(
         this.mcpClient,
-      ).getLookupWeatherTools();
+      ).getToolsByNames(GoogleToolsName.LOOKUP_WEATHER);
 
       const agent = createAgent({
         model: this.model,
