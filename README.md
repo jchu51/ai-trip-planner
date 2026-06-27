@@ -152,6 +152,28 @@ tool automatically; each agent receives only the tool group it needs. For
 example, the weather agent receives `lookup_weather`, while the places agent
 receives `search_places`.
 
+### Backend Structure
+
+```text
+backend/src/
+  app.ts                         # builds and exports the Express app
+  server.ts                      # starts the HTTP server and handles shutdown
+  api/
+    routes/                      # Express route modules
+  domain/                        # shared trip schemas and domain types
+  agents/                        # focused LangChain agent classes
+  prompts/                       # system prompts and user prompt builders
+  examples/                      # local CLI/demo runners
+  mcp/
+    clients/                     # MCP client setup
+    tools/                       # MCP tool selection helpers
+  services/                      # orchestration and LLM services
+```
+
+`src/app.ts` is intentionally separate from `src/server.ts` so the Express app
+can be imported without opening a port. That makes testing and future serverless
+or worker-style entry points easier.
+
 ### Agent Flow
 
 The sample backend app currently runs the independent specialist agents in
@@ -201,6 +223,10 @@ are:
 Create `backend/.env` from `backend/.env.example` and provide:
 
 ```env
+NODE_ENV=development
+HOST=127.0.0.1
+PORT=8000
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 LLM_MODEL_ID=
 LLM_API_KEY=
 LLM_TIMEOUT=60
@@ -209,6 +235,10 @@ GOOGLE_MCP_URL=https://mapstools.googleapis.com/mcp
 ```
 
 Optional LangSmith tracing variables are also included in the example env file.
+By default, local development allows the Vite frontend running on
+`localhost:5173` to call the backend API. For deployed environments, set
+`NODE_ENV=production`, change `CORS_ORIGINS` to the real frontend origin, and set
+`HOST=0.0.0.0` if the server must accept external traffic.
 
 Install and run:
 
@@ -216,6 +246,40 @@ Install and run:
 cd backend
 npm install
 npm start
+```
+
+Run with hot reload during development:
+
+```bash
+cd backend
+npm run dev
+```
+
+The API server listens on `http://127.0.0.1:8000` by default.
+
+Health check:
+
+```bash
+curl http://localhost:8000/health
+```
+
+Generate a trip plan:
+
+```bash
+curl 'http://localhost:8000/api/trip/plan' \
+  --data-raw '{"city":"Taipei","start_date":"2026-06-01","end_date":"2026-06-03","travel_days":3,"transportation":"public transit","accommodation":"economy hotel","preferences":["temples","local food"],"free_text_input":""}'
+```
+
+The endpoint runs the weather, places, and hotel specialist agents first, then
+passes their outputs into the planner agent. The response matches the original
+Python frontend contract:
+
+```ts
+{
+  success: boolean;
+  message: string;
+  data?: TripPlan;
+}
 ```
 
 Type-check:

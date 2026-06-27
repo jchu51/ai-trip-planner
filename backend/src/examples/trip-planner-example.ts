@@ -3,13 +3,13 @@ import {
   LookupWeathearAgent,
   PlannerAgent,
   SearchPlacesAgent,
-} from "../agents/index";
+} from "../agents";
 import { googleMapsMcpClient } from "../mcp/clients/google-map-client";
-import { llmService } from "./llm-service";
+import { llmService } from "../services/llm-service";
 
-export const app = async () => {
+const runExample = async () => {
   const model = await llmService.init();
-  const weathearAgent = new LookupWeathearAgent(
+  const weatherAgent = new LookupWeathearAgent(
     "lookupWeatherAgent",
     model,
     googleMapsMcpClient,
@@ -19,7 +19,6 @@ export const app = async () => {
     model,
     googleMapsMcpClient,
   );
-
   const hotelAgent = new HotelAgent("hotelAgent", model, googleMapsMcpClient);
   const plannerAgent = new PlannerAgent("plannerAgent", model);
 
@@ -27,8 +26,8 @@ export const app = async () => {
     "Plan a 3-day trip to Taipei for two people. We like temples, local food, and a medium budget.";
 
   try {
-    const [wResponse, pResponse, hResponse] = await Promise.all([
-      weathearAgent.run(userPrompt),
+    const [weather, places, hotels] = await Promise.all([
+      weatherAgent.run(userPrompt),
       searchPlacesAgent.run(userPrompt),
       hotelAgent.run(userPrompt),
     ]);
@@ -38,13 +37,13 @@ Original user request:
 ${userPrompt}
 
 Weather agent output:
-${wResponse}
+${weather}
 
 Search places agent output:
-${pResponse}
+${places}
 
 Hotel agent output:
-${hResponse}
+${hotels}
 `.trim();
 
     const finalPlan = await plannerAgent.run(plannerInput);
@@ -55,7 +54,7 @@ ${hResponse}
   }
 };
 
-app().catch((error) => {
+runExample().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
