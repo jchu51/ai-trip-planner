@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { STORAGE_KEY } from "../../constants/storage";
-import type { Attraction, Meal, TripPlan } from "../../types";
+import type { Attraction, Budget, Meal, TripPlan } from "../../types";
 import { InfoCard, InfoRow, SectionDivider } from "../ui/InfoCard";
 import { AttractionCard } from "./AttractionCard";
 import { BudgetPanel } from "./BudgetPanel";
@@ -79,18 +79,37 @@ export function ResultPage({
   const updateAttraction = (
     dayIndex: number,
     attractionIndex: number,
-    field: keyof Pick<Attraction, "address" | "description" | "visit_duration">,
+    field: keyof Pick<
+      Attraction,
+      "address" | "description" | "name" | "ticket_price" | "visit_duration"
+    >,
     value: string | number,
   ) => {
     setPlan((current) => {
       if (!current) return current;
       const next = structuredClone(current);
       const attraction = next.days[dayIndex].attractions[attractionIndex];
-      if (field === "visit_duration") {
-        attraction.visit_duration = Number(value);
+      if (field === "ticket_price" || field === "visit_duration") {
+        attraction[field] = normalizeCurrencyValue(value);
       } else {
         attraction[field] = String(value);
       }
+      return next;
+    });
+  };
+
+  const updateBudget = (field: keyof Budget, value: number) => {
+    setPlan((current) => {
+      if (!current?.budget || field === "total") return current;
+      const next = structuredClone(current);
+      if (!next.budget) return current;
+
+      next.budget[field] = normalizeCurrencyValue(value);
+      next.budget.total =
+        next.budget.total_attractions +
+        next.budget.total_hotels +
+        next.budget.total_meals +
+        next.budget.total_transportation;
       return next;
     });
   };
@@ -294,7 +313,11 @@ export function ResultPage({
 
           {plan.budget && (
             <InfoCard id="budget" title="Budget">
-              <BudgetPanel budget={plan.budget} />
+              <BudgetPanel
+                budget={plan.budget}
+                editMode={editMode}
+                onUpdate={updateBudget}
+              />
             </InfoCard>
           )}
 
@@ -426,4 +449,10 @@ export function ResultPage({
       </div>
     </main>
   );
+}
+
+function normalizeCurrencyValue(value: string | number) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue < 0) return 0;
+  return Math.round(numericValue);
 }

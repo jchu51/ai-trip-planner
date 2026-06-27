@@ -560,6 +560,22 @@ textarea:focus {
   font-size: 21px;
 }
 
+.budget-input {
+  width: min(160px, 100%);
+  margin-top: 6px;
+}
+
+.budget-input input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 850;
+  text-align: center;
+}
+
 .budget-total {
   display: flex;
   align-items: center;

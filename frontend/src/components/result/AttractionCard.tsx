@@ -10,7 +10,10 @@ type AttractionCardProps = {
   onMove: (direction: "up" | "down") => void;
   onDelete: () => void;
   onUpdate: (
-    field: keyof Pick<Attraction, "address" | "description" | "visit_duration">,
+    field: keyof Pick<
+      Attraction,
+      "address" | "description" | "name" | "ticket_price" | "visit_duration"
+    >,
     value: string | number,
   ) => void;
 };
@@ -64,6 +67,13 @@ export function AttractionCard({
         {editMode ? (
           <div className="edit-fields">
             <label>
+              <span>Attraction</span>
+              <input
+                value={attraction.name}
+                onChange={(event) => onUpdate("name", event.target.value)}
+              />
+            </label>
+            <label>
               <span>Address</span>
               <input
                 value={attraction.address}
@@ -79,6 +89,17 @@ export function AttractionCard({
                 value={attraction.visit_duration}
                 onChange={(event) =>
                   onUpdate("visit_duration", event.target.value)
+                }
+              />
+            </label>
+            <label>
+              <span>Ticket Price</span>
+              <input
+                type="number"
+                min={0}
+                value={attraction.ticket_price ?? 0}
+                onChange={(event) =>
+                  onUpdate("ticket_price", event.target.value)
                 }
               />
             </label>
