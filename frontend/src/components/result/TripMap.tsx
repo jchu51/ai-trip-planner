@@ -51,7 +51,10 @@ export function TripMap({
     ),
   );
   const [routeStatuses, setRouteStatuses] = useState<RouteStatuses>({});
-  const activeRoutes = editableRoutesByDay[activeMapDay] ?? [];
+  const activeRoutes = useMemo(
+    () => editableRoutesByDay[activeMapDay] ?? [],
+    [activeMapDay, editableRoutesByDay],
+  );
   const mapCenter = useMemo(() => getMapCenter(days), [days]);
   const activeRouteKey = useMemo(
     () =>

@@ -60,11 +60,12 @@ PlannerAgent → Zod-validated TripPlan
 JSON response
 ```
 
-- All agents extend `Agent<Output>` (`src/core/agent.ts`) and use LangChain's `createReactAgent` with `@langchain/anthropic`
+- All agents extend `Agent<Output>` (`src/core/agent.ts`) and use LangChain's `createAgent` from `langchain`
 - Specialist agents use a faster model; the planner can use a stronger model (controlled by env)
 - MCP tools are scoped per agent: weather agent only gets `lookup_weather`, places agents only get `search_places`, planner gets `compute_routes` + `resolve_maps_urls`
 - The MCP client is shared across agents and created/closed once per request in `trip-planner-service.ts`
-- MCP tool discovery is cached (`google-maps-tools.ts`) to avoid repeated calls
+- MCP results are cached at two levels: tool discovery (`google-maps-tools.ts`) and API results (`mcp-result-cache.ts`, 10-minute TTL, promise-based to dedup concurrent calls)
+- MCP result cache logs use `miss`, `hit`, and `drop`. `drop` means the Google MCP promise rejected and was removed from cache; repeated `miss` + `drop` points to an upstream Google MCP/tool failure, not a cache storage failure.
 
 ### Key Files
 
@@ -74,6 +75,8 @@ JSON response
 | `backend/src/agents/planner-agent.ts`          | Final planner; returns structured Zod-validated `TripPlan`                 |
 | `backend/src/domain/trip.ts`                   | All Zod schemas (request/response types) — source of truth for data shapes |
 | `backend/src/mcp/clients/google-map-client.ts` | MCP client for Google Maps HTTP transport                                  |
+| `backend/src/mcp/tools/google-maps-tool-provider.ts` | Bundles MCP client + result cache; injected into every agent         |
+| `backend/src/mcp/tools/mcp-result-cache.ts`    | Promise-based result cache (10-min TTL) shared across all agents           |
 | `backend/src/services/llm-service.ts`          | LangChain model initialization                                             |
 | `backend/src/prompts/`                         | System prompts for each agent + shared user prompt builder                 |
 | `frontend/src/App.tsx`                         | Root view router (home ↔ result) using sessionStorage                      |
@@ -88,6 +91,13 @@ JSON response
 
 Session storage persists the trip plan between page navigation. The `App.tsx` root component handles the home/result view switch. No external state library — pure React hooks.
 
-## No Lint or Test Configuration
+## Linting and Formatting
 
-There is no ESLint, Prettier, Jest, or Vitest setup. Type-checking (`npx tsc --noEmit`) is the primary static check available.
+ESLint (v9 flat config) + Prettier are configured in both `backend/` and `frontend/`. Run from within each directory:
+
+```bash
+npm run lint      # ESLint
+npm run format    # Prettier (writes in place)
+```
+
+Shared Prettier settings live at the root `.prettierrc`. No Jest or Vitest — type-checking (`npx tsc --noEmit`) and ESLint are the primary static checks.

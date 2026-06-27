@@ -1,5 +1,4 @@
 import type { ConfigurableModel } from "langchain/chat_models/universal";
-import type { MultiServerMCPClient } from "@langchain/mcp-adapters";
 import {
   HotelAgent,
   LookupWeatherAgent,
@@ -7,15 +6,19 @@ import {
   SearchPlacesAgent,
 } from "../agents";
 import { type TripPlan, type TripPlanRequest } from "../domain/trip";
+import { GoogleMapsToolProvider } from "../mcp/tools/google-maps-tool-provider";
 import { buildTripUserPrompt } from "../prompts/trip-user-prompt";
 
 export class TripPlannerService {
-  private model: ConfigurableModel;
-  private mcpClient: MultiServerMCPClient;
+  private readonly model: ConfigurableModel;
+  private readonly googleMapsToolProvider: GoogleMapsToolProvider;
 
-  constructor(model: ConfigurableModel, mcpClient: MultiServerMCPClient) {
+  constructor(
+    model: ConfigurableModel,
+    googleMapsToolProvider: GoogleMapsToolProvider,
+  ) {
     this.model = model;
-    this.mcpClient = mcpClient;
+    this.googleMapsToolProvider = googleMapsToolProvider;
   }
 
   async planTrip(request: TripPlanRequest): Promise<TripPlan> {
@@ -24,26 +27,57 @@ export class TripPlannerService {
     const weatherAgent = new LookupWeatherAgent(
       "lookupWeatherAgent",
       this.model,
-      this.mcpClient,
+      this.googleMapsToolProvider,
+      request.city,
     );
 
     const searchPlacesAgent = new SearchPlacesAgent(
       "searchPlacesAgent",
       this.model,
-      this.mcpClient,
+      this.googleMapsToolProvider,
+      request.city,
     );
-    const hotelAgent = new HotelAgent("hotelAgent", this.model, this.mcpClient);
+    const hotelAgent = new HotelAgent(
+      "hotelAgent",
+      this.model,
+      this.googleMapsToolProvider,
+      request.city,
+    );
     const plannerAgent = new PlannerAgent(
       "plannerAgent",
       this.model,
-      this.mcpClient,
+      this.googleMapsToolProvider,
+      request.city,
     );
 
-    const [weather, places, hotels] = await Promise.all([
+    const [weatherResult, placesResult, hotelsResult] = await Promise.allSettled([
       weatherAgent.run(userPrompt),
       searchPlacesAgent.run(userPrompt),
       hotelAgent.run(userPrompt),
     ]);
+
+    if (weatherResult.status === "rejected") {
+      console.error("Weather agent failed:", weatherResult.reason);
+    }
+    if (placesResult.status === "rejected") {
+      console.error("Places agent failed:", placesResult.reason);
+    }
+    if (hotelsResult.status === "rejected") {
+      console.error("Hotel agent failed:", hotelsResult.reason);
+    }
+
+    const weather =
+      weatherResult.status === "fulfilled"
+        ? weatherResult.value
+        : "Weather data unavailable.";
+    const places =
+      placesResult.status === "fulfilled"
+        ? placesResult.value
+        : "Places data unavailable.";
+    const hotels =
+      hotelsResult.status === "fulfilled"
+        ? hotelsResult.value
+        : "Hotel data unavailable.";
 
     const plannerInput = `
         Original user request:
@@ -69,7 +103,7 @@ export class TripPlannerService {
   }
 
   async close(): Promise<void> {
-    await this.mcpClient.close();
+    await this.googleMapsToolProvider.close();
   }
 
   private createFallbackTripPlan(request: TripPlanRequest): TripPlan {
@@ -97,22 +131,16 @@ export class TripPlannerService {
     request: TripPlanRequest,
   ): TripPlan {
     const existingRoutes = plan.routes ?? [];
-    const daysWithExistingRoutes = new Set(
-      existingRoutes.map((route) => this.normalizeDayIndex(route.day_index)),
-    );
-    const generatedRoutes = plan.days.flatMap((day, index) => {
-      const dayIndex = this.normalizeDayIndex(day.day_index, index);
-      if (daysWithExistingRoutes.has(dayIndex)) return [];
+    const coveredDays = new Set(existingRoutes.map((r) => r.day_index));
 
-      return this.createRoutesForDay(day, dayIndex, request.transportation);
+    const generatedRoutes = plan.days.flatMap((day, index) => {
+      if (coveredDays.has(index)) return [];
+      return this.createRoutesForDay(day, index, request.transportation);
     });
 
     if (generatedRoutes.length === 0) return plan;
 
-    return {
-      ...plan,
-      routes: [...existingRoutes, ...generatedRoutes],
-    };
+    return { ...plan, routes: [...existingRoutes, ...generatedRoutes] };
   }
 
   private createRoutesForDay(
@@ -173,10 +201,6 @@ export class TripPlannerService {
 
   private createGoogleMapsDirectionsUrl(from: string, to: string): string {
     return `https://www.google.com/maps/dir/${encodeURIComponent(from)}/${encodeURIComponent(to)}`;
-  }
-
-  private normalizeDayIndex(dayIndex: number, fallback = 0): number {
-    return dayIndex > 0 ? dayIndex - 1 : (dayIndex ?? fallback);
   }
 
   private createFallbackDays(request: TripPlanRequest): TripPlan["days"] {

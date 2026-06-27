@@ -1,15 +1,20 @@
 import { z } from "zod";
 
-export const tripPlanRequestSchema = z.object({
-  city: z.string().min(1, "city is required"),
-  start_date: z.string().min(1, "start_date is required"),
-  end_date: z.string().min(1, "end_date is required"),
-  travel_days: z.coerce.number().int().positive(),
-  transportation: z.string().min(1, "transportation is required"),
-  accommodation: z.string().min(1, "accommodation is required"),
-  preferences: z.array(z.string()).default([]),
-  free_text_input: z.string().optional().default(""),
-});
+export const tripPlanRequestSchema = z
+  .object({
+    city: z.string().min(1, "city is required"),
+    start_date: z.string().date("start_date must be a valid date (YYYY-MM-DD)"),
+    end_date: z.string().date("end_date must be a valid date (YYYY-MM-DD)"),
+    travel_days: z.coerce.number().int().positive(),
+    transportation: z.string().min(1, "transportation is required"),
+    accommodation: z.string().min(1, "accommodation is required"),
+    preferences: z.array(z.string()).default([]),
+    free_text_input: z.string().optional().default(""),
+  })
+  .refine((data) => new Date(data.start_date) < new Date(data.end_date), {
+    message: "end_date must be after start_date",
+    path: ["end_date"],
+  });
 
 export type TripPlanRequestBody = z.infer<typeof tripPlanRequestSchema>;
 export type TripPlanRequest = TripPlanRequestBody;
@@ -45,7 +50,7 @@ const hotelSchema = z.object({
   address: z.string().default(""),
   location: locationSchema.optional(),
   price_range: z.string().default(""),
-  rating: z.string().default(""),
+  rating: z.coerce.number().optional(),
   distance: z.string().default(""),
   type: z.string().default(""),
   estimated_cost: z.coerce.number().int().optional().default(0),
@@ -128,7 +133,13 @@ export const tripPlanSchema = z.object({
     )
     .default([]),
   overall_suggestions: z.string(),
-  budget: budgetSchema.optional(),
+  budget: budgetSchema.default({
+    total_attractions: 0,
+    total_hotels: 0,
+    total_meals: 0,
+    total_transportation: 0,
+    total: 0,
+  }),
 });
 
 export type TripPlan = z.infer<typeof tripPlanSchema>;

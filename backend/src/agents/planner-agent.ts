@@ -4,32 +4,34 @@ import { Agent } from "../core/agent";
 import { AgentError } from "../core/agent-error";
 import { type TripPlan, tripPlanSchema } from "../domain/trip";
 import { PLANNER_SYSTEM_PROMPT } from "../prompts/planner-system-prompt";
-import { MultiServerMCPClient } from "@langchain/mcp-adapters";
 import {
-  GoogleMapsTools,
+  GoogleMapsToolProvider,
   GoogleToolsName,
-} from "../mcp/tools/google-maps-tools";
+} from "../mcp/tools/google-maps-tool-provider";
 
 export class PlannerAgent extends Agent<TripPlan> {
   readonly model: ConfigurableModel;
-  readonly mcpClient: MultiServerMCPClient;
+  readonly googleMapsToolProvider: GoogleMapsToolProvider;
+  readonly cacheCity?: string;
 
   constructor(
     name: string,
     model: ConfigurableModel,
-    mcpClient: MultiServerMCPClient,
+    googleMapsToolProvider: GoogleMapsToolProvider,
+    cacheCity?: string,
   ) {
     super(name);
     this.model = model;
-    this.mcpClient = mcpClient;
+    this.googleMapsToolProvider = googleMapsToolProvider;
+    this.cacheCity = cacheCity;
   }
 
   async run(input: string): Promise<TripPlan> {
     try {
-      const tools = await new GoogleMapsTools(this.mcpClient).getToolsByNames([
-        GoogleToolsName.COMPUTE_ROUTES,
-        GoogleToolsName.RESOLVE_MAPS_URLS,
-      ]);
+      const tools = await this.googleMapsToolProvider.getToolsByNames(
+        [GoogleToolsName.COMPUTE_ROUTES, GoogleToolsName.RESOLVE_MAPS_URLS],
+        this.cacheCity,
+      );
 
       const agent = createAgent({
         model: this.model,

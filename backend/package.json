@@ -6,7 +6,9 @@
   "scripts": {
     "start": "tsx src/server.ts",
     "dev": "nodemon",
-    "example": "tsx src/examples/trip-planner-example.ts"
+    "example": "tsx src/examples/trip-planner-example.ts",
+    "lint": "eslint src/",
+    "format": "prettier --write src/"
   },
   "nodemonConfig": {
     "watch": [
@@ -36,9 +38,13 @@
   },
   "devDependencies": {
     "@types/node": "^26.0.1",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
     "nodemon": "^3.1.14",
+    "prettier": "^3.9.0",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.0"
   },
   "engines": {
     "node": ">=20"

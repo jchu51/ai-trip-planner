@@ -4,26 +4,42 @@ import {
   PlannerAgent,
   SearchPlacesAgent,
 } from "../agents";
-import { googleMapsMcpClient } from "../mcp/clients/google-map-client";
+import { createGoogleMapsMcpClient } from "../mcp/clients/google-map-client";
+import { GoogleMapsToolProvider } from "../mcp/tools/google-maps-tool-provider";
+import { McpResultCache } from "../mcp/tools/mcp-result-cache";
 import { llmService } from "../services/llm-service";
 
 const runExample = async () => {
   const model = await llmService.init();
+  const googleMapsMcpClient = createGoogleMapsMcpClient();
+  const mcpResultCache = new McpResultCache();
+  const googleMapsToolProvider = new GoogleMapsToolProvider(
+    googleMapsMcpClient,
+    mcpResultCache,
+  );
   const weatherAgent = new LookupWeatherAgent(
     "lookupWeatherAgent",
     model,
-    googleMapsMcpClient,
+    googleMapsToolProvider,
+    "Taipei",
   );
   const searchPlacesAgent = new SearchPlacesAgent(
     "searchPlacesAgent",
     model,
-    googleMapsMcpClient,
+    googleMapsToolProvider,
+    "Taipei",
   );
-  const hotelAgent = new HotelAgent("hotelAgent", model, googleMapsMcpClient);
+  const hotelAgent = new HotelAgent(
+    "hotelAgent",
+    model,
+    googleMapsToolProvider,
+    "Taipei",
+  );
   const plannerAgent = new PlannerAgent(
     "plannerAgent",
     model,
-    googleMapsMcpClient,
+    googleMapsToolProvider,
+    "Taipei",
   );
 
   const userPrompt =

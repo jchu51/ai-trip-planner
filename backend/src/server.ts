@@ -1,12 +1,25 @@
 import { createApp } from "./app";
 import { config } from "./config";
-import { googleMapsMcpClient } from "./mcp/clients/google-map-client";
+import { createGoogleMapsMcpClient } from "./mcp/clients/google-map-client";
+import { GoogleMapsToolProvider } from "./mcp/tools/google-maps-tool-provider";
+import { McpResultCache } from "./mcp/tools/mcp-result-cache";
 import { llmService } from "./services/llm-service";
 import { TripPlannerService } from "./services/trip-planner-service";
 
 const main = async () => {
   const model = await llmService.init();
-  const tripPlannerService = new TripPlannerService(model, googleMapsMcpClient);
+  const googleMapsMcpClient = createGoogleMapsMcpClient();
+  const mcpResultCache = new McpResultCache();
+
+  const googleMapsToolProvider = new GoogleMapsToolProvider(
+    googleMapsMcpClient,
+    mcpResultCache,
+  );
+
+  const tripPlannerService = new TripPlannerService(
+    model,
+    googleMapsToolProvider,
+  );
   const app = createApp({
     tripPlannerService,
     corsOrigins: config.server.corsOrigins,
@@ -19,6 +32,12 @@ const main = async () => {
   });
 
   const shutdown = () => {
+    const forceExit = setTimeout(() => {
+      console.error("Shutdown timed out — forcing exit");
+      process.exit(1);
+    }, 30_000);
+    forceExit.unref();
+
     server.close(() => {
       void tripPlannerService.close().finally(() => {
         process.exit(0);

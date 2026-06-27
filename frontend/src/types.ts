@@ -29,7 +29,7 @@ export interface Hotel {
   address: string;
   location?: Location;
   price_range: string;
-  rating: string;
+  rating?: number;
   distance: string;
   type: string;
   estimated_cost?: number;
@@ -83,7 +83,7 @@ export interface TripPlan {
   weather_info: WeatherInfo[];
   routes: RouteConnection[];
   overall_suggestions: string;
-  budget?: Budget;
+  budget: Budget;
 }
 
 export interface TripFormData {

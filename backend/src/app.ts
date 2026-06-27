@@ -20,15 +20,7 @@ export const createApp = ({
     }),
   );
 
-  app.use(
-    express.json({
-      type: [
-        "application/json",
-        "application/*+json",
-        "application/x-www-form-urlencoded",
-      ],
-    }),
-  );
+  app.use(express.json({ type: ["application/json", "application/*+json"] }));
 
   app.get("/health", (_req, res) => {
     res.json({

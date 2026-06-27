@@ -264,7 +264,33 @@ are:
 - use a faster model for specialist research agents
 - reserve the stronger model for the planner agent
 - cache MCP tool discovery instead of calling `getTools()` repeatedly
+- cache Google Maps MCP tool results in memory for the backend session. Results
+  are grouped by normalized city and also include the tool name plus arguments,
+  so repeated trips for the same city can reuse matching weather, place, hotel,
+  or route lookups without mixing different tool calls.
 - close the shared MCP client after the full pipeline finishes
+
+### MCP Cache Debugging
+
+Google Maps MCP result caching is promise-based and lives in backend memory for
+10 minutes. The backend logs cache decisions while agents run:
+
+```text
+[MCP cache miss] search_places Tokyo key=f2eef924 size=0
+[MCP cache hit] search_places Tokyo key=f2eef924 size=1
+[MCP cache drop] search_places Tokyo key=f2eef924 size=0
+```
+
+- `miss`: no matching cached result exists, so the backend calls Google MCP.
+- `hit`: the same city, tool name, and tool arguments were found in cache.
+- `drop`: the Google MCP call rejected, so the failed promise was removed from
+  cache. Repeated `miss` followed by `drop` means the upstream Google MCP call
+  is failing; it does not mean the cache is failing.
+
+The `key` is a short fingerprint of the full cache key. If two lines have the
+same label but different keys, the LLM called the same tool with different
+arguments. Because this cache is in memory, restarting the backend with nodemon
+clears it.
 
 ### Backend Setup
 

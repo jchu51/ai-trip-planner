@@ -1,33 +1,37 @@
 import { createAgent } from "langchain";
 import { ConfigurableModel } from "langchain/chat_models/universal";
-import { MultiServerMCPClient } from "@langchain/mcp-adapters";
 import { Agent } from "../core/agent";
 import { AgentError } from "../core/agent-error";
 import {
-  GoogleMapsTools,
+  GoogleMapsToolProvider,
   GoogleToolsName,
-} from "../mcp/tools/google-maps-tools";
+} from "../mcp/tools/google-maps-tool-provider";
 import { HOTEL_AGENT_SYSTEM_PROMPT } from "../prompts/hotel-system-prompt";
 
 export class HotelAgent extends Agent {
   readonly model: ConfigurableModel;
-  readonly mcpClient: MultiServerMCPClient;
+  readonly googleMapsToolProvider: GoogleMapsToolProvider;
+  readonly cacheCity?: string;
 
   constructor(
     name: string,
     model: ConfigurableModel,
-    mcpClient: MultiServerMCPClient,
+    googleMapsToolProvider: GoogleMapsToolProvider,
+    cacheCity?: string,
   ) {
     super(name);
     this.model = model;
-    this.mcpClient = mcpClient;
+    this.googleMapsToolProvider = googleMapsToolProvider;
+    this.cacheCity = cacheCity;
   }
 
   async run(input: string): Promise<string> {
     try {
-      const searchPlacesTool = await new GoogleMapsTools(
-        this.mcpClient,
-      ).getToolsByNames(GoogleToolsName.SEARCH_PLACES);
+      const searchPlacesTool =
+        await this.googleMapsToolProvider.getToolsByNames(
+          GoogleToolsName.SEARCH_PLACES,
+          this.cacheCity,
+        );
 
       const agent = createAgent({
         model: this.model,
